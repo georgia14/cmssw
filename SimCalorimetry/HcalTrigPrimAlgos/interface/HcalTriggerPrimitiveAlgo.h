@@ -24,11 +24,11 @@ class IntegerCaloSamples;
 
 class Sample {
    public:
-      Sample() : samples_(5) {};
+      Sample() : samples_(8) {};
       // Depth levels in the DetId start with 1
   void add(int depth, const IntegerCaloSamples& samples) {
     for (int i = 0; i < samples.size(); ++i)
-      samples_[depth - 1][i] += samples[i];
+      samples_[depth][i] += samples[i];
   };
   Sample& operator+=(const Sample& o) {
     for (unsigned d = 0; d < samples_.size(); ++d) {
@@ -309,14 +309,14 @@ void HcalTriggerPrimitiveAlgo::run(const HcalTPGCoder* incoder,
             analyzeHF(item.second, result.back(), RCTScaleShift);
          } else 
 	*/
-	if (detId.version() == 1) {
-	  if (upgrade_hf_)
-	    analyzeHFQIE10(item.second, result.back(), NCTScaleShift, LongvrsShortCut);
+	//	if (detId.version() == 1) {
+	//	  if (upgrade_hf_)
+	    //	    analyzeHFQIE10(item.second, result.back(), NCTScaleShift, LongvrsShortCut);
 	    //  else
 	    // analyzeHF2016(item.second, result.back(), NCTScaleShift, LongvrsShortCut);
-         } else {
+	//         } else {
             // Things are going to go poorly
-         }
+	// }
       }
       else {
          // Determine which energy reconstruction path to take based on the
