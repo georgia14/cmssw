@@ -23,12 +23,13 @@
    <class name="HcalUpgradeTriggerPrimitiveSample" ClassVersion="10">
      <version ClassVersion="10" checksum="962586172"/>
    </class>
-   <class name="HcalUpgradeTriggerPrimitiveDigi" ClassVersion="14">
+   <class name="HcalUpgradeTriggerPrimitiveDigi" ClassVersion="15">
       <version ClassVersion="10" checksum="3986635124"/>
       <version ClassVersion="11" checksum="2056527544"/>
       <version ClassVersion="12" checksum="1260353952"/>
       <version ClassVersion="13" checksum="2284698495"/>
       <version ClassVersion="14" checksum="2056527544"/>
+      <version ClassVersion="15" checksum="2284698495"/>
    </class>
    <class name="HOTriggerPrimitiveDigi" ClassVersion="10">
     <version ClassVersion="10" checksum="3812852628"/>

@@ -18,8 +18,48 @@
 #include "Geometry/HcalTowerAlgo/interface/HcalTrigTowerGeometry.h"
 
 #include <iostream>
+#include <numeric>
 
 using namespace std;
+
+std::pair<double, double>
+timing(const QIE11DataFrame& frame) {
+  // edm::DataFrame::size_type 
+  int n = frame.size();
+  double ft = -999.;
+  double rt = -999.;
+  int sig_bx = frame.presamples();     
+  //edm::DataFrame::size_type sig_bx = frame.presamples();
+  int dir = -1; int step = 1;  
+  int i = sig_bx;
+  //edm::DataFrame::size_type i = sig_bx;
+  int nbins = 50;
+
+  while ((i > 2) && (i < (int)frame.size() - 2) && (i < n) && ((rt < -998.) || (ft < 998.))) {
+
+    auto rise = frame[i].tdc() % 100;
+    auto fall = frame[i].tdc() / 100;
+
+    if (rt < -998. && rise != 62 && rise != 63) {
+      rt = rise * 25. / nbins + (i - sig_bx) * 25.;
+    }
+    if (((ft < -998.) || (ft < rt)) && 
+	(fall != 62) && (fall != 63)) {
+      ft = fall * 25. / nbins + (i - sig_bx) * 25.;
+    }
+
+    i += dir * step;
+    ++step;
+    dir *= -1;
+  }
+
+  /* if (rt > -998 or ft > -998) */
+  /*    std::cout << "rise " << rt << " fall " << ft << std::endl; */
+
+  return {rt, ft};
+}
+
+
 
 void
 update(HcalUpgradeTriggerPrimitiveDigi& digi, const Sample& sample, int soi)
@@ -27,12 +67,46 @@ update(HcalUpgradeTriggerPrimitiveDigi& digi, const Sample& sample, int soi)
   
    std::vector<int> linearized;
 
-   for (int i = 0; i < 5; ++i) {
+   std::vector<double> rise_avg;
+   std::vector<double> rise_rms;
+   std::vector<double> fall_avg;
+   std::vector<double> fall_rms;
+   std::vector<int> oot;
+
+   for (int i = 0; i < 8; ++i) {
      linearized.push_back(sample[i][soi]);
+
+     auto rise = sample.rise(i);
+     if (rise.size() > 0) {
+       double avg = std::accumulate(rise.begin(), rise.end(), 0.) / rise.size();
+       double sqrs = std::accumulate(rise.begin(), rise.end(), 0., [](double x, double y) { return x + y * y; });
+
+       rise_avg.push_back(avg);
+       rise_rms.push_back(sqrt(sqrs / rise.size() - avg * avg));
+     } else {
+       rise_avg.push_back(-1e6);
+       rise_rms.push_back(-1e6);
+     }
+
+     auto fall = sample.fall(i);
+     if (fall.size() > 0) {
+       double avg = std::accumulate(fall.begin(), fall.end(), 0.) / fall.size();
+       double sqrs = std::accumulate(fall.begin(), fall.end(), 0., [](double x, double y) { return x + y * y; });
+
+       fall_avg.push_back(avg);
+       fall_rms.push_back(sqrt(sqrs / fall.size() - avg * avg));
+     } else {
+       fall_avg.push_back(-1e6);
+       fall_rms.push_back(-1e6);
+     }
+     oot.push_back(sample(i)[soi]);
+
     }
 
    digi.setDepthData(linearized);
 
+   digi.setOOTData(oot);
+   digi.setTimingData(rise_avg, rise_rms, fall_avg, fall_rms);
 }
 
 void
@@ -293,14 +367,14 @@ HcalTriggerPrimitiveAlgo::addSignal(const QIE11DataFrame& frame)
          samples2[i] = samples1[i];
       }
       samples2.setPresamples(frame.presamples());
-      addSignal(samples2, depth);
+      addSignal(samples2, depth, timing(frame));
       addUpgradeFG(ids[1], detId.depth(), msb);
    }
-   addSignal(samples1, depth);
+   addSignal(samples1, depth, timing(frame));
    addUpgradeFG(ids[0], detId.depth(), msb);
 }
 
-void HcalTriggerPrimitiveAlgo::addSignal(const IntegerCaloSamples & samples, int depth) {
+void HcalTriggerPrimitiveAlgo::addSignal(const IntegerCaloSamples & samples, int depth, const std::pair<double, double>& tdc) {
    HcalTrigTowerDetId id(samples.id());
    SumMap::iterator itr = theSumMap.find(id);
    if(itr == theSumMap.end()) {
@@ -313,7 +387,7 @@ void HcalTriggerPrimitiveAlgo::addSignal(const IntegerCaloSamples & samples, int
          (itr->second)[i] += samples[i];
       }
    }
-   theDepthMap[id].add(depth, samples);
+   theDepthMap[id].add(depth, samples, tdc);
 }
 
 void HcalTriggerPrimitiveAlgo::analyze(IntegerCaloSamples & samples, HcalTriggerPrimitiveDigi & result) {

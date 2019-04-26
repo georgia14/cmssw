@@ -24,29 +24,56 @@ class IntegerCaloSamples;
 
 class Sample {
    public:
-      Sample() : samples_(8) {};
+ Sample() : samples_(8), oot_(8), rising_(8), falling_(8)  {};
       // Depth levels in the DetId start with 1
-  void add(int depth, const IntegerCaloSamples& samples) {
+  void add(int depth, const IntegerCaloSamples& samples, const std::pair<double, double>& tdc) {
     for (int i = 0; i < samples.size(); ++i)
       samples_[depth][i] += samples[i];
+
+    if (tdc.first > -998.)
+      rising_[depth].push_back(tdc.first);
+    if (tdc.second > -998.)
+      falling_[depth].push_back(tdc.second);
+
+    if (((tdc.first < tdc.second || tdc.first < -998.) && tdc.second < 0. && tdc.second > -998.)
+	|| ((tdc.first < tdc.second || tdc.second < 0.) && tdc.first > 25.)) {
+      for (int i = 0; i < samples.size(); ++i)
+	oot_[depth][i] += samples[i];
+    }
+
   };
   Sample& operator+=(const Sample& o) {
     for (unsigned d = 0; d < samples_.size(); ++d) {
       for (int i = 0; i < samples_[d].size(); ++i) {
 	samples_[d][i] += o.samples_[d][i];
+	oot_[d][i] += o.oot_[d][i];
       }
+      rising_[d].insert(rising_[d].end(), o.rising_[d].begin(), o.rising_[d].end());
+      falling_[d].insert(falling_[d].end(), o.falling_[d].begin(), o.falling_[d].end());
     }
     return *this;
   };
   const IntegerCaloSamples& operator[](int i) const {
     return samples_[i];
   };
+  const IntegerCaloSamples& operator()(int i) const {
+    return oot_[i];
+  };
   unsigned int size() const {
     return samples_.size();
+  };
+  const std::vector<double>& rise(int i) const {
+    return rising_[i];
+  };
+  const std::vector<double>& fall(int i) const {
+    return falling_[i];
   };
   
  private:
   std::vector<IntegerCaloSamples> samples_;
+  std::vector<IntegerCaloSamples> oot_;
+  std::vector<std::vector<double>> rising_;
+  std::vector<std::vector<double>> falling_;
 
 };
 
@@ -107,7 +134,7 @@ template<typename... Digis, typename TPColl>
   void addSignal(const HFDataFrame & frame);
   void addSignal(const QIE10DataFrame& frame);
   void addSignal(const QIE11DataFrame& frame);
-  void addSignal(const IntegerCaloSamples & samples, int depth=0);
+  void addSignal(const IntegerCaloSamples & samples, int depth=0, const std::pair<double, double>& tdc={0, 0});
   void addFG(const HcalTrigTowerDetId& id, std::vector<bool>& msb);
   void addUpgradeFG(const HcalTrigTowerDetId& id, int depth, const std::vector<std::bitset<2>>& bits);
 
@@ -309,14 +336,14 @@ void HcalTriggerPrimitiveAlgo::run(const HcalTPGCoder* incoder,
             analyzeHF(item.second, result.back(), RCTScaleShift);
          } else 
 	*/
-	//	if (detId.version() == 1) {
-	//	  if (upgrade_hf_)
-	    //	    analyzeHFQIE10(item.second, result.back(), NCTScaleShift, LongvrsShortCut);
-	    //  else
-	    // analyzeHF2016(item.second, result.back(), NCTScaleShift, LongvrsShortCut);
-	//         } else {
+	if (detId.version() == 1) {
+	  if (upgrade_hf_)
+	    analyzeHFQIE10(item.second, result.back(), NCTScaleShift, LongvrsShortCut);
+	  //	  else
+	  //analyzeHF2016(item.second, result.back(), NCTScaleShift, LongvrsShortCut);
+	} else {
             // Things are going to go poorly
-	// }
+	}
       }
       else {
          // Determine which energy reconstruction path to take based on the
@@ -324,11 +351,11 @@ void HcalTriggerPrimitiveAlgo::run(const HcalTPGCoder* incoder,
          //  * QIE8 TP add entries into fgMap_
          //  * QIE11 TP add entries into fgUpgradeMap_
          //    (not for tower 16 unless HB is upgraded, too)
-         if (fgMap_.find(item.first) != fgMap_.end()) {
-            analyze(item.second, result.back());
-         } else if (fgUpgradeMap_.find(item.first) != fgUpgradeMap_.end()) {
-            analyzeQIE11(item.second, result.back(), fg_algo);
-         }
+	if (fgMap_.find(item.first) != fgMap_.end()) {
+	  analyze(item.second, result.back());
+	} else if (fgUpgradeMap_.find(item.first) != fgUpgradeMap_.end()) {
+	  analyzeQIE11(item.second, result.back(), fg_algo);
+	}
       }
    }
 
