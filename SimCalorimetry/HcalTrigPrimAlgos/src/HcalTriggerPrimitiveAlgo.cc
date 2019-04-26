@@ -62,10 +62,10 @@ timing(const QIE11DataFrame& frame) {
 
 
 void
-update(HcalUpgradeTriggerPrimitiveDigi& digi, const Sample& sample, int soi)
+update(HcalUpgradeTriggerPrimitiveDigi& digi, const Sample& sample, int soi, std::vector<int> linearized)
 {
   
-   std::vector<int> linearized;
+  //   std::vector<int> linearized;
 
    std::vector<double> rise_avg;
    std::vector<double> rise_rms;
@@ -74,7 +74,7 @@ update(HcalUpgradeTriggerPrimitiveDigi& digi, const Sample& sample, int soi)
    std::vector<int> oot;
 
    for (int i = 0; i < 8; ++i) {
-     linearized.push_back(sample[i][soi]);
+     //     linearized.push_back(sample[i][soi]);
 
      auto rise = sample.rise(i);
      if (rise.size() > 0) {
@@ -677,7 +677,7 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
    int dgSamples=samples.size();
    int tpSamples=numberOfSamples_;
 
-   std::vector<int> depth_sums(5, 0);
+   std::vector<int> depth_sums(8, 0);
    
    if((shift<shrink) || (shift + tpSamples + shrink > dgSamples - (peak_finder_algorithm_ - 1) )   ){
       edm::LogInfo("HcalTriggerPrimitiveAlgo::analyze") << 
@@ -706,7 +706,7 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
 	 // energy value used downstream, even if the peak is found for
 	 // another sample.
 	 if (ibin == numberOfPresamples_) {
-	   for (int d = 0; d < 5; ++d) {
+	   for (int d = 0; d < 8; ++d) {
 	     auto algosumvalue = 0;
 	     for (unsigned int i = 0; i < weights_.size(); ++i)
 	       algosumvalue += int(theDepthMap[samples.id()][d][idx + i] * weights_[i]);
@@ -720,7 +720,7 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
 
 	 // See comment above.
          if (ibin == numberOfPresamples_) {
-            for (int d = 0; d < 5; ++d) {
+            for (int d = 0; d < 8; ++d) {
                auto algosumvalue = 0;
                for (unsigned int i = 0; i < weights_.size(); ++i)
                   algosumvalue += int(theDepthMap[samples.id()][d][idx + i] * weights_[i]);
@@ -731,7 +731,8 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
    }
    outcoder_->compress(output, finegrain, result);
 
-   update(result, theDepthMap[samples.id()], numberOfPresamples_);
+   update(result, theDepthMap[samples.id()], numberOfPresamples_,depth_sums); 
+   //update(result, theDepthMap[samples.id()], numberOfPresamples_);
 }
 
 void HcalTriggerPrimitiveAlgo::analyzeHF(IntegerCaloSamples & samples, HcalTriggerPrimitiveDigi & result, const int hf_lumi_shift) {
