@@ -25,25 +25,27 @@ using namespace std;
 std::pair<double, double>
 timing(const QIE11DataFrame& frame) {
   // edm::DataFrame::size_type 
-  int n = frame.size();
+  int n = (int)frame.size();
   double ft = -999.;
   double rt = -999.;
-  int sig_bx = frame.presamples();     
-  //edm::DataFrame::size_type sig_bx = frame.presamples();
+  int sig_bx = (int)frame.presamples();     
+
   int dir = -1; int step = 1;  
   int i = sig_bx;
-  //edm::DataFrame::size_type i = sig_bx;
-  int nbins = 50;
+
+  int nbins = 500;
 
   while ((i > 2) && (i < (int)frame.size() - 2) && (i < n) && ((rt < -998.) || (ft < 998.))) {
 
-    auto rise = frame[i].tdc() % 100;
-    auto fall = frame[i].tdc() / 100;
+    unsigned rise = frame[i].tdc() % 100;
+    unsigned fall = frame[i].tdc() / 100;
+
+    //    printf("runnin i=%d with frame_size=%d, rise=%u and fall=%u\n",i,n,rise,fall);  
 
     if (rt < -998. && rise != 62 && rise != 63) {
       rt = rise * 25. / nbins + (i - sig_bx) * 25.;
     }
-    if (((ft < -998.) || (ft < rt)) && 
+    if (((ft < -998.) || (ft < rt))  && 
 	(fall != 62) && (fall != 63)) {
       ft = fall * 25. / nbins + (i - sig_bx) * 25.;
     }
@@ -52,10 +54,10 @@ timing(const QIE11DataFrame& frame) {
     ++step;
     dir *= -1;
   }
-
-  /* if (rt > -998 or ft > -998) */
-  /*    std::cout << "rise " << rt << " fall " << ft << std::endl; */
-
+  /*
+  if (rt > -998 or ft > -998) 
+    std::cout << "rise " << rt << " fall " << ft << std::endl; 
+  */
   return {rt, ft};
 }
 
@@ -594,9 +596,11 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalTriggerP
 	// In addition, divide by two in the 10 degree phi segmentation region
 	// to mimic 5 degree segmentation for the trigger
 	unsigned int sample = samples[ibin+i];
+	if(ids.size()==2) sample *= 0.5;
 	if(sample>QIE11_MAX_LINEARIZATION_ET) sample = QIE11_MAX_LINEARIZATION_ET;
-	if(ids.size()==2) algosumvalue += int(sample * 0.5 * weights_[i]);
-	else algosumvalue += int(sample * weights_[i]);
+	//	if(ids.size()==2) algosumvalue += int(sample * 0.5 * weights_[i]);
+	//	else 
+	algosumvalue += int(sample * weights_[i]);
       }
       if (algosumvalue<0) sum[ibin]=0;            // low-side
                                                   //high-side
@@ -660,9 +664,10 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
 	// In addition, divide by two in the 10 degree phi segmentation region
 	// to mimic 5 degree segmentation for the trigger
 	unsigned int sample = samples[ibin+i];
-	if(sample>QIE11_MAX_LINEARIZATION_ET) sample = QIE11_MAX_LINEARIZATION_ET;
-	if(ids.size()==2) algosumvalue += int(sample * 0.5 * weights_[i]);
-	else algosumvalue += int(sample * weights_[i]);
+	if(ids.size()==2) sample *= 0.5; 
+	//	if(ids.size()==2) sample = int(sample * 0.5);
+        if(sample>QIE11_MAX_LINEARIZATION_ET) sample = QIE11_MAX_LINEARIZATION_ET; 
+        algosumvalue += int(sample * weights_[i]);    
       }
       if (algosumvalue<0) sum[ibin]=0;            // low-side
                                                   //high-side
