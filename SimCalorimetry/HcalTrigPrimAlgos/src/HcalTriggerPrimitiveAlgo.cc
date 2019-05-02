@@ -33,7 +33,7 @@ timing(const QIE11DataFrame& frame) {
   int dir = -1; int step = 1;  
   int i = sig_bx;
 
-  int nbins = 500;
+  int nbins = 50;
 
   while ((i > 2) && (i < (int)frame.size() - 2) && (i < n) && ((rt < -998.) || (ft < 998.))) {
 
