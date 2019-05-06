@@ -42,7 +42,7 @@ private:
 
   bool runFrontEndFormatError_;
 
-  bool upgrade_;
+  bool upgrade_,upgrade2_;
   bool legacy_;
 
   bool HFEMB_;
