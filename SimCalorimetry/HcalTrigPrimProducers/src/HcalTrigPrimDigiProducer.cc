@@ -247,6 +247,7 @@ void HcalTrigPrimDigiProducer::produce(edm::Event& iEvent, const edm::EventSetup
 
   // Step D: Put outputs into event
   iEvent.put(std::move(result));
+  iEvent.put(std::move(up_result));
 }
 
 
