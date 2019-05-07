@@ -31,6 +31,7 @@ namespace DataFormats_HcalDigi {
     edm::SortedCollection<HFDataFrame> vHF_;
     edm::SortedCollection<HcalCalibDataFrame> vHC_;
     edm::SortedCollection<HcalTriggerPrimitiveDigi> vHTP_;
+    edm::SortedCollection<HcalUpgradeTriggerPrimitiveDigi> vHUTP_;
     edm::SortedCollection<HcalHistogramDigi> vHH_;
     edm::SortedCollection<HcalTTPDigi> vTTP_;
     edm::SortedCollection<HcalUpgradeDataFrame> vU_;
@@ -40,6 +41,7 @@ namespace DataFormats_HcalDigi {
     HFDigiCollection theHF_;
     HcalCalibDigiCollection theHC_;
     HcalTrigPrimDigiCollection theHTP_;
+    HcalUpgradeTrigPrimDigiCollection theHUTP_;
     HcalHistogramDigiCollection theHH_;
     ZDCDigiCollection theZDC_;
     HBHEUpgradeDigiCollection theUHBHE_;
@@ -56,6 +58,7 @@ namespace DataFormats_HcalDigi {
     edm::Wrapper<edm::SortedCollection<HFDataFrame> > anotherHF_;
     edm::Wrapper<edm::SortedCollection<HcalCalibDataFrame> > anotherHC_;
     edm::Wrapper<edm::SortedCollection<HcalTriggerPrimitiveDigi> > anotherHTP_;
+    edm::Wrapper<edm::SortedCollection<HcalUpgradeTriggerPrimitiveDigi> > anotherUGTP_;
     edm::Wrapper<edm::SortedCollection<HcalHistogramDigi> > anotherHH_;
     edm::Wrapper<edm::SortedCollection<ZDCDataFrame> > anotherZDC_;
     edm::Wrapper<edm::SortedCollection<CastorDataFrame> > anotherCastor_;
@@ -69,6 +72,7 @@ namespace DataFormats_HcalDigi {
     edm::Wrapper<HFDigiCollection> theHFw_;
     edm::Wrapper<HcalCalibDigiCollection> theHCw_;
     edm::Wrapper<HcalTrigPrimDigiCollection> theHTPw_; 
+    edm::Wrapper<HcalUpgradeTrigPrimDigiCollection> theHUTPw_; 
     edm::Wrapper<HOTrigPrimDigiCollection> theHOTPw_; 
     edm::Wrapper<HcalHistogramDigiCollection> theHHw_; 
     edm::Wrapper<HcalUnpackerReport> theReport_;
