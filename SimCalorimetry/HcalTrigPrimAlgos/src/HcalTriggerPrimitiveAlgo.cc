@@ -685,21 +685,22 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
 
    // Align digis and TP
    int dgPresamples=samples.presamples(); //3
-   int tpPresamples=numberOfPresamples_;//1
-   //   int shift = dgPresamples - tpPresamples; // shift=2 and shrink=3weights-1=2
-   //   int dgSamples=samples.size(); //8
+   int tpPresamples=numberOfPresamples_;//0
+   int shift = dgPresamples - tpPresamples; // shift=3 and shrink=3weights-1 = 2
+   int dgSamples=samples.size(); //8
    int tpSamples=numberOfSamples_; //4
 
    std::vector<int> depth_sums(8, 0);
-   /*   2+4+2>8-(3-1) ==> 8>6 and before was: 1+4+1>8-1 ==> 6>7
+   //  N(pre)=1: 2+4+2>8-(3-1) ==> 8>6 and before was: 1+4+1>8-1 ==> 6>7
+   //  N(pre)=0: 3+4+2 > 8-2 => 9>6
    if((shift<shrink) || (shift + tpSamples + shrink > dgSamples - (peak_finder_algorithm_ - 1) )   ){
-      edm::LogInfo("HcalTriggerPrimitiveAlgo::analyze") << 
-         "TP presample or size from the configuration file is out of the accessible range. Using digi values from data instead...";
-      shift=shrink;
-      tpPresamples=dgPresamples-shrink;
-      tpSamples=dgSamples-(peak_finder_algorithm_-1)-shrink-shift;
+     edm::LogInfo("HcalTriggerPrimitiveAlgo::analyze") << 
+       "TP presample or size from the configuration file is out of the accessible range. Using digi values from data instead...";
+     shift=shrink; // shift=3
+     tpPresamples=dgPresamples-shrink;// =0
+     tpSamples=dgSamples-(peak_finder_algorithm_-1)-shrink-shift; //8-2-3-3=2=2
    }
-   */
+   
    std::vector<int> finegrain(tpSamples,false);
 
    IntegerCaloSamples output(samples.id(), tpSamples);
@@ -708,7 +709,7 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
    for (int ibin = 0; ibin < tpSamples; ++ibin) {
       // ibin - index for output TP
       // idx - index for samples + shift
-     int idx = ibin + 1;//shift;
+     int idx = ibin + shift;
 
      bool isPeak = (sum[idx] > sum[idx-1] && sum[idx] >= sum[idx+1] && sum[idx] > theThreshold);
      
