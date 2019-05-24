@@ -653,6 +653,8 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
    auto& msb = fgUpgradeMap_[samples.id()];
    IntegerCaloSamples sum(samples.id(), samples.size());
 
+   //   printf("\n\n");
+
    HcalDetId detId(samples.id());
    std::vector<HcalTrigTowerDetId> ids = theTrigTowerGeometry->towerIds(detId);
    //slide algo window
@@ -663,6 +665,8 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
 	// In addition, divide by two in the 10 degree phi segmentation region
 	// to mimic 5 degree segmentation for the trigger
 	unsigned int sample = samples[ibin+i]; //samples[ibin+i];
+	//	printf("ibin= %d and i=%d, so ibin+i=%d and sample[ibin+i]=%u\n",ibin,i,ibin+i,sample);    
+
 	if(sample>QIE11_MAX_LINEARIZATION_ET) sample = QIE11_MAX_LINEARIZATION_ET;
 	if(ids.size()==2) algosumvalue += int(sample * 0.5 * weights_[i]);
 	else algosumvalue += int(sample * weights_[i]);
@@ -677,31 +681,34 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
       */
       if (algosumvalue<0) {
 	sum[ibin]=0;            // low-side
+	//	printf("\n");           
       //else if (algosumvalue>QIE11_LINEARIZATION_ET) sum[ibin]=QIE11_LINEARIZATION_ET;
       } else {
 	sum[ibin] = algosumvalue;              //assign value to sum[]
+	//	printf("sum of ibin=%d is = %u\n",ibin,sum[ibin]);           
       }
    }
 
    // Align digis and TP
    int dgPresamples=samples.presamples(); //3
-   int tpPresamples=numberOfPresamples_;//0
-   int shift = dgPresamples - tpPresamples; // shift=3 and shrink=3weights-1 = 2
+   int tpPresamples=numberOfPresamples_;//2
+   int shift = dgPresamples - tpPresamples; // shift=1 and shrink=4weights-1 = 3
    int dgSamples=samples.size(); //8
    int tpSamples=numberOfSamples_; //4
 
    std::vector<int> depth_sums(8, 0);
-   //  N(pre)=1: 2+4+2>8-(3-1) ==> 8>6 and before was: 1+4+1>8-1 ==> 6>7
-   //  N(pre)=0: 3+4+2 > 8-2 => 9>6
+   
    if((shift<shrink) || (shift + tpSamples + shrink > dgSamples - (peak_finder_algorithm_ - 1) )   ){
      edm::LogInfo("HcalTriggerPrimitiveAlgo::analyze") << 
        "TP presample or size from the configuration file is out of the accessible range. Using digi values from data instead...";
-     shift=shrink; // shift=3
+     //  shift=shrink; // shift=3
      tpPresamples=dgPresamples-shrink;// =0
-     tpSamples=dgSamples-(peak_finder_algorithm_-1)-shrink-shift; //8-2-3-3=2=2
+     tpSamples=dgSamples-(peak_finder_algorithm_-1)-shrink-shift; //8-2-3-1=2
    }
    
    std::vector<int> finegrain(tpSamples,false);
+
+   //   printf("1: Number of tpSamples changed? =%d\n",tpSamples);
 
    IntegerCaloSamples output(samples.id(), tpSamples);
    output.setPresamples(tpPresamples);
@@ -710,12 +717,14 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
       // ibin - index for output TP
       // idx - index for samples + shift
      int idx = ibin + shift;
+     //     printf("ibin, index of output TP is=%d and idx, index of samples+shift=%d, and shift=%d\n",ibin,idx,shift);
 
      bool isPeak = (sum[idx] > sum[idx-1] && sum[idx] >= sum[idx+1] && sum[idx] > theThreshold);
      
      if (isPeak){
        output[ibin] = std::min<unsigned int>(sum[idx],QIE11_MAX_LINEARIZATION_ET);
-       
+       //       printf("++++++++InPeak, sum is=%u\n",sum[idx]);
+
        // Only provide depth information for the SOI.  This is the
        // energy value used downstream, even if the peak is found for
        // another sample.
