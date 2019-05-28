@@ -31,6 +31,8 @@ class HcalUpgradeTriggerPrimitiveDigi {
 
   void setDepthData ( std::vector<int> d ) { m_depth_data = d; };
 
+  void setSampleData ( std::vector<int> p) {m_sample_data = p; };
+
   void setTimingData (
 		      std::vector<double> rise_avg,
 		      std::vector<double> rise_rms,
@@ -50,6 +52,7 @@ class HcalUpgradeTriggerPrimitiveDigi {
   void setSample    ( int i, const HcalUpgradeTriggerPrimitiveSample& sample ) { m_data[i] = sample; }
 
   const std::vector<int>& getDepthData() const { return m_depth_data; };
+  const std::vector<int>& getSampleData() const { return m_sample_data; };
 
   const std::vector<double>& getRisingAvg() const { return m_rising_avg; };
   const std::vector<double>& getRisingRMS() const { return m_rising_rms; };
@@ -104,6 +107,7 @@ class HcalUpgradeTriggerPrimitiveDigi {
   HcalUpgradeTriggerPrimitiveSample m_data [MAXSAMPLES];
 
   std::vector<int> m_depth_data;
+  std::vector<int> m_sample_data;
 
   std::vector<int> m_oot_data;
   std::vector<double> m_rising_avg;
