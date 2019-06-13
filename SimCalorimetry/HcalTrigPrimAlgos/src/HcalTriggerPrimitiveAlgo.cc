@@ -13,18 +13,122 @@
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/Framework/interface/ESHandle.h"
 
 #include "Geometry/HcalTowerAlgo/interface/HcalTrigTowerGeometry.h"
 
 #include <iostream>
+#include <numeric>
 
 using namespace std;
+
+std::pair<double, double>
+timing(const QIE11DataFrame& frame) {
+  // edm::DataFrame::size_type 
+  int n = (int)frame.size();
+  double ft = -999.;
+  double rt = -999.;
+  int sig_bx = (int)frame.presamples();     
+
+  int dir = -1; int step = 1;  
+  int i = sig_bx;
+
+  int nbins = 500;
+
+  while ((i > 2) && (i < (int)frame.size() - 2) && (i < n) && ((rt < -998.) || (ft < 998.))) {
+
+    unsigned rise = frame[i].tdc() % 100;
+    unsigned fall = frame[i].tdc() / 100;
+
+    //    printf("runnin i=%d with frame_size=%d, rise=%u and fall=%u\n",i,n,rise,fall);  
+
+    if (rt < -998. && rise != 62 && rise != 63) {
+      rt = rise * 25. / nbins + (i - sig_bx) * 25.;
+    }
+    if (((ft < -998.) || (ft < rt))  && 
+	(fall != 62) && (fall != 63)) {
+      ft = fall * 25. / nbins + (i - sig_bx) * 25.;
+    }
+
+    i += dir * step;
+    ++step;
+    dir *= -1;
+  }
+  /*
+  if (rt > -998 or ft > -998) 
+  std::cout << "rise " << rt << " fall " << ft << std::endl; 
+  */
+  return {rt, ft};
+}
+
+void
+update(HcalUpgradeTriggerPrimitiveDigi& digi, const Sample& sample, int soi, std::vector<int> linearized)
+{
+
+  //   std::vector<int> linearized;
+
+  std::vector<double> rise_avg;
+  std::vector<double> rise_rms;
+  std::vector<double> fall_avg;
+  std::vector<double> fall_rms;
+  std::vector<int> oot;
+
+  for (int i = 0; i < 8; ++i) {
+    //     linearized.push_back(sample[i][soi]);
+
+    auto rise = sample.rise(i);
+    if (rise.size() > 0) {
+      double avg = std::accumulate(rise.begin(), rise.end(), 0.) / rise.size();
+      double sqrs = std::accumulate(rise.begin(), rise.end(), 0., [](double x, double y) { return x + y * y; });
+
+      rise_avg.push_back(avg);
+      rise_rms.push_back(sqrt(sqrs / rise.size() - avg * avg));
+    } else {
+      rise_avg.push_back(-1e6);
+      rise_rms.push_back(-1e6);
+    }
+
+    auto fall = sample.fall(i);
+    if (fall.size() > 0) {
+      double avg = std::accumulate(fall.begin(), fall.end(), 0.) / fall.size();
+      double sqrs = std::accumulate(fall.begin(), fall.end(), 0., [](double x, double y) { return x + y * y; });
+
+      fall_avg.push_back(avg);
+      fall_rms.push_back(sqrt(sqrs / fall.size() - avg * avg));
+    } else {
+      fall_avg.push_back(-1e6);
+      fall_rms.push_back(-1e6);
+    }
+    oot.push_back(sample(i)[soi]);
+
+  }
+
+  digi.setDepthData(linearized);
+
+  digi.setOOTData(oot);
+  digi.setTimingData(rise_avg, rise_rms, fall_avg, fall_rms);
+}
+
+void
+update_legacy(HcalUpgradeTriggerPrimitiveDigi& digi, const Sample& sample, int soi)
+{
+
+  std::vector<int> linearized;
+
+  for (int i = 0; i < 3; ++i) {
+    linearized.push_back(sample[i][soi]);
+  }
+
+  digi.setDepthData(linearized);
+
+}
 
 HcalTriggerPrimitiveAlgo::HcalTriggerPrimitiveAlgo( bool pf, const std::vector<double>& w, int latency,
                                                     uint32_t FG_threshold, const std::vector<uint32_t>& FG_HF_thresholds, uint32_t ZS_threshold,
                                                     int numberOfSamples, int numberOfPresamples,
                                                     int numberOfSamplesHF, int numberOfPresamplesHF, bool useTDCInMinBiasBits,
-                                                    uint32_t minSignalThreshold, uint32_t PMT_NoiseThreshold
+                                                    uint32_t minSignalThreshold, uint32_t PMT_NoiseThreshold,
+						    bool upgrade
                                                     )
                                                    : incoder_(nullptr), outcoder_(nullptr),
                                                    theThreshold(0), peakfind_(pf), weights_(w), latency_(latency),
@@ -37,6 +141,7 @@ HcalTriggerPrimitiveAlgo::HcalTriggerPrimitiveAlgo( bool pf, const std::vector<d
                                                    minSignalThreshold_(minSignalThreshold),
                                                    PMT_NoiseThreshold_(PMT_NoiseThreshold),
                                                    NCTScaleShift(0), RCTScaleShift(0),
+                                                   upgrade_(upgrade),  
                                                    peak_finder_algorithm_(2),
                                                    override_parameters_()
 {
@@ -240,6 +345,8 @@ void
 HcalTriggerPrimitiveAlgo::addSignal(const QIE11DataFrame& frame)
 {
    HcalDetId detId(frame.id());
+
+   int depth = HcalDetId(frame.id()).depth();
    // prevent QIE11 calibration channels from entering TP emulation
    if(detId.subdet() != HcalEndcap && detId.subdet() != HcalBarrel) return;
 
@@ -261,18 +368,22 @@ HcalTriggerPrimitiveAlgo::addSignal(const QIE11DataFrame& frame)
          samples2[i] = samples1[i];
       }
       samples2.setPresamples(frame.presamples());
-      addSignal(samples2);
+      addSignal(samples2, depth, timing(frame));
+      //      addSignal(samples2);
       addUpgradeFG(ids[1], detId.depth(), msb);
    }
-   addSignal(samples1);
+   //   addSignal(samples1);
+   addSignal(samples1, depth, timing(frame));
    addUpgradeFG(ids[0], detId.depth(), msb);
 }
 
-void HcalTriggerPrimitiveAlgo::addSignal(const IntegerCaloSamples & samples) {
+//void HcalTriggerPrimitiveAlgo::addSignal(const IntegerCaloSamples & samples) {
+void HcalTriggerPrimitiveAlgo::addSignal(const IntegerCaloSamples & samples, int depth, const std::pair<double, double>& tdc) {
    HcalTrigTowerDetId id(samples.id());
    SumMap::iterator itr = theSumMap.find(id);
    if(itr == theSumMap.end()) {
       theSumMap.insert(std::make_pair(id, samples));
+      theDepthMap.insert(std::make_pair(id, Sample()));
    }
    else {
       // wish CaloSamples had a +=
@@ -280,6 +391,7 @@ void HcalTriggerPrimitiveAlgo::addSignal(const IntegerCaloSamples & samples) {
          (itr->second)[i] += samples[i];
       }
    }
+   theDepthMap[id].add(depth, samples, tdc);
 }
 
 
@@ -362,6 +474,112 @@ void HcalTriggerPrimitiveAlgo::analyze(IntegerCaloSamples & samples, HcalTrigger
    outcoder_->compress(output, finegrain, result);
 }
 
+void HcalTriggerPrimitiveAlgo::analyze(IntegerCaloSamples & samples, HcalUpgradeTriggerPrimitiveDigi & result) {
+   int shrink = weights_.size() - 1;
+   std::vector<bool>& msb = fgMap_[samples.id()];
+   IntegerCaloSamples sum(samples.id(), samples.size());
+
+   //slide algo window
+   for(int ibin = 0; ibin < int(samples.size())- shrink; ++ibin) {
+      int algosumvalue = 0;
+      for(unsigned int i = 0; i < weights_.size(); i++) {
+         //add up value * scale factor
+         algosumvalue += int(samples[ibin+i] * weights_[i]);
+      }
+      if (algosumvalue<0) sum[ibin]=0;            // low-side
+                                                  //high-side
+      //else if (algosumvalue>QIE8_LINEARIZATION_ET) sum[ibin]=QIE8_LINEARIZATION_ET;
+      else sum[ibin] = algosumvalue;              //assign value to sum[]
+   }
+
+   // Align digis and TP
+   int dgPresamples=samples.presamples(); 
+   int tpPresamples=numberOfPresamples_;
+   int shift = dgPresamples - tpPresamples;
+   int dgSamples=samples.size();
+   int tpSamples=numberOfSamples_;
+   if(peakfind_){
+       if((shift<shrink) || (shift + tpSamples + shrink > dgSamples - (peak_finder_algorithm_ - 1) )   ){
+	    edm::LogInfo("HcalTriggerPrimitiveAlgo::analyze") << 
+		"TP presample or size from the configuration file is out of the accessible range. Using digi values from data instead...";
+	    shift=shrink;
+	    tpPresamples=dgPresamples-shrink;
+	    tpSamples=dgSamples-(peak_finder_algorithm_-1)-shrink-shift;
+       }
+   }
+
+   std::vector<int> finegrain(tpSamples,false);
+
+   IntegerCaloSamples output(samples.id(), tpSamples);
+   output.setPresamples(tpPresamples);
+
+    std::vector<int> depth_sums(3, 0);
+   
+   for (int ibin = 0; ibin < tpSamples; ++ibin) {
+      // ibin - index for output TP
+      // idx - index for samples + shift
+      int idx = ibin + shift;
+
+      //Peak finding
+      if (peakfind_) {
+         bool isPeak = false;
+         switch (peak_finder_algorithm_) {
+            case 1 :
+               isPeak = (samples[idx] > samples[idx-1] && samples[idx] >= samples[idx+1] && samples[idx] > theThreshold);
+               break;
+            case 2:
+               isPeak = (sum[idx] > sum[idx-1] && sum[idx] >= sum[idx+1] && sum[idx] > theThreshold);
+               break;
+            default:
+               break;
+         }
+
+         if (isPeak){
+            output[ibin] = std::min<unsigned int>(sum[idx],QIE8_LINEARIZATION_ET);
+            finegrain[ibin] = msb[idx];
+
+	    // Only provide depth information for the SOI.  This is the
+            // energy value used downstream, even if the peak is found for
+            // another sample.
+            if (ibin == numberOfPresamples_) {
+               for (int d = 0; d < 3; ++d) {
+                  auto algosumvalue = 0;
+                  for (unsigned int i = 0; i < weights_.size(); ++i)
+                   algosumvalue   += int(theDepthMap[samples.id()][d][idx + i] * weights_[i]);
+                  depth_sums[d] += std::min<unsigned int>(algosumvalue, QIE8_LINEARIZATION_ET);
+               }
+            }
+	    
+         }
+         // Not a peak
+         else output[ibin] = 0;
+      }
+      else { // No peak finding, just output running sum
+         output[ibin] = std::min<unsigned int>(sum[idx],QIE8_LINEARIZATION_ET);
+         finegrain[ibin] = msb[idx];
+
+	  // See comment above.
+         if (ibin == numberOfPresamples_) {
+            for (int d = 0; d < 3; ++d) {
+               auto algosumvalue = 0;
+               for (unsigned int i = 0; i < weights_.size(); ++i)
+                  algosumvalue += int(theDepthMap[samples.id()][d][idx + i] * weights_[i]);
+               depth_sums[d] += std::min<unsigned int>(algosumvalue, QIE8_LINEARIZATION_ET);
+            }
+         }
+      }
+
+      // Only Pegged for 1-TS algo.
+      if (peak_finder_algorithm_ == 1) {
+         if (samples[idx] >= QIE8_LINEARIZATION_ET)
+            output[ibin] = QIE8_LINEARIZATION_ET;
+      }
+   }
+   outcoder_->compress(output, finegrain, result);
+
+   update_legacy(result, theDepthMap[samples.id()], numberOfPresamples_);
+}
+
 
 void
 HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalTriggerPrimitiveDigi& result, const HcalFinegrainBit& fg_algo)
@@ -428,6 +646,96 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalTriggerP
    outcoder_->compress(output, finegrain, result);
 }
 
+void
+HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeTriggerPrimitiveDigi& result, const HcalFinegrainBit& fg_algo)
+{
+   int shrink = weights_.size() - 1;
+   auto& msb = fgUpgradeMap_[samples.id()];
+   IntegerCaloSamples sum(samples.id(), samples.size());
+
+   HcalDetId detId(samples.id());
+   std::vector<HcalTrigTowerDetId> ids = theTrigTowerGeometry->towerIds(detId);
+   //slide algo window
+   for(int ibin = 0; ibin < int(samples.size())- shrink; ++ibin) {
+      int algosumvalue = 0;
+      for(unsigned int i = 0; i < weights_.size(); i++) {
+	//add up value * scale factor
+	// In addition, divide by two in the 10 degree phi segmentation region
+	// to mimic 5 degree segmentation for the trigger
+	unsigned int sample = samples[ibin+i];
+	if(sample>QIE11_MAX_LINEARIZATION_ET) sample = QIE11_MAX_LINEARIZATION_ET;
+	if(ids.size()==2) algosumvalue += int(sample * 0.5 * weights_[i]);
+	else algosumvalue += int(sample * weights_[i]);
+      }
+      if (algosumvalue<0) sum[ibin]=0;            // low-side
+                                                  //high-side
+      //else if (algosumvalue>QIE11_LINEARIZATION_ET) sum[ibin]=QIE11_LINEARIZATION_ET;
+      else sum[ibin] = algosumvalue;              //assign value to sum[]
+   }
+
+   // Align digis and TP
+   int dgPresamples=samples.presamples(); 
+   int tpPresamples=numberOfPresamples_;
+   int shift = dgPresamples - tpPresamples;
+   int dgSamples=samples.size();
+   int tpSamples=numberOfSamples_;
+
+   std::vector<int> depth_sums(8, 0);
+   
+   if((shift<shrink) || (shift + tpSamples + shrink > dgSamples - (peak_finder_algorithm_ - 1) )   ){
+      edm::LogInfo("HcalTriggerPrimitiveAlgo::analyze") << 
+         "TP presample or size from the configuration file is out of the accessible range. Using digi values from data instead...";
+      shift=shrink;
+      tpPresamples=dgPresamples-shrink;
+      tpSamples=dgSamples-(peak_finder_algorithm_-1)-shrink-shift;
+   }
+
+   std::vector<int> finegrain(tpSamples,false);
+
+   IntegerCaloSamples output(samples.id(), tpSamples);
+   output.setPresamples(tpPresamples);
+
+   for (int ibin = 0; ibin < tpSamples; ++ibin) {
+      // ibin - index for output TP
+      // idx - index for samples + shift
+      int idx = ibin + shift;
+      bool isPeak = (sum[idx] > sum[idx-1] && sum[idx] >= sum[idx+1] && sum[idx] > theThreshold);
+
+      if (isPeak){
+         output[ibin] = std::min<unsigned int>(sum[idx],QIE11_MAX_LINEARIZATION_ET);
+
+	 // Only provide depth information for the SOI.  This is the
+	 // energy value used downstream, even if the peak is found for
+	 // another sample.
+	 if (ibin == numberOfPresamples_) {
+	   for (int d = 0; d < 8; ++d) {
+	     auto algosumvalue = 0;
+	     for (unsigned int i = 0; i < weights_.size(); ++i)
+	       algosumvalue += int(theDepthMap[samples.id()][d][idx + i] * weights_[i]);
+	     depth_sums[d] += std::min<unsigned int>(algosumvalue, QIE11_MAX_LINEARIZATION_ET);
+	   }
+	 }
+      } else {
+         // Not a peak
+         output[ibin] = 0;
+
+	 // See comment above.
+         if (ibin == numberOfPresamples_) {
+	   for (int d = 0; d < 8; ++d) {
+	     auto algosumvalue = 0;
+	     for (unsigned int i = 0; i < weights_.size(); ++i)
+	       algosumvalue += int(theDepthMap[samples.id()][d][idx + i] * weights_[i]);
+	     depth_sums[d] += std::min<unsigned int>(algosumvalue, QIE11_MAX_LINEARIZATION_ET);
+	   }
+         }
+      }
+      // peak-finding is not applied for FG bits
+      finegrain[ibin] = fg_algo.compute(msb[idx]).to_ulong();
+   }
+   outcoder_->compress(output, finegrain, result);
+
+   update(result, theDepthMap[samples.id()], numberOfPresamples_,depth_sums); 
+}
 
 void HcalTriggerPrimitiveAlgo::analyzeHF(IntegerCaloSamples & samples, HcalTriggerPrimitiveDigi & result, const int hf_lumi_shift) {
    HcalTrigTowerDetId detId(samples.id());
@@ -574,6 +882,108 @@ HcalTriggerPrimitiveAlgo::validChannel(const QIE10DataFrame& digi, int ts) const
 
 void HcalTriggerPrimitiveAlgo::analyzeHFQIE10(
         const IntegerCaloSamples& samples, HcalTriggerPrimitiveDigi& result,
+        const int hf_lumi_shift, const HcalFeatureBit* embit)
+{
+    // Align digis and TP
+    const int shift = samples.presamples() - numberOfPresamplesHF_;
+    assert(shift >= 0);
+    assert((shift + numberOfSamplesHF_) <= samples.size());
+    assert(hf_lumi_shift>=2);
+
+    // Try to find the HFDetails from the map corresponding to our samples
+    const HcalTrigTowerDetId detId(samples.id());
+    auto it = theHFUpgradeDetailMap.find(detId);
+    // Missing values will give an empty digi
+    if (it == theHFUpgradeDetailMap.end()) {
+        return;
+    }
+
+    std::vector<std::bitset<2>> finegrain(numberOfSamplesHF_, false);
+
+    // Set up out output of IntergerCaloSamples
+    IntegerCaloSamples output(samples.id(), numberOfSamplesHF_);
+    output.setPresamples(numberOfPresamplesHF_);
+
+    for (const auto& item: it->second) {
+        auto& details = item.second;
+        for (int ibin = 0; ibin < numberOfSamplesHF_; ++ibin) {
+            const int idx = ibin + shift;
+
+            int long_fiber_val = 0;
+            int long_fiber_count = 0;
+            int short_fiber_val = 0;
+            int short_fiber_count = 0;
+
+            bool saturated = false;
+
+            for (auto i: {0, 2}) {
+               if (idx < details[i].samples.size() and details[i].validity[idx] and details[i].passTDC[idx]) {
+                  long_fiber_val += details[i].samples[idx];
+                  saturated = saturated || (details[i].samples[idx] == QIE10_LINEARIZATION_ET);
+                  ++long_fiber_count;
+               }
+            }
+            for (auto i: {1, 3}) {
+               if (idx < details[i].samples.size() and details[i].validity[idx] and details[i].passTDC[idx]) {
+                  short_fiber_val += details[i].samples[idx];
+                  saturated = saturated || (details[i].samples[idx] == QIE10_LINEARIZATION_ET);
+                  ++short_fiber_count;
+               }
+            }
+
+            if (saturated) {
+               output[ibin] = QIE10_MAX_LINEARIZATION_ET;
+            } else {
+		// For details of the energy handling, see:
+		// https://cms-docdb.cern.ch/cgi-bin/DocDB/ShowDocument?docid=12306
+		// If both readouts are valid, average of the two energies is taken
+		// division by 2 is compensated by adjusting the total scale shift in the end
+		if (long_fiber_count == 2) long_fiber_val >>=1;
+		if (short_fiber_count == 2) short_fiber_val >>=1;
+		
+		auto sum = long_fiber_val + short_fiber_val;
+		// Similar to above, if both channels are valid, 
+		// average of the two energies is calculated
+		// division by 2 here is also compensated by adjusting the total scale shift in the end
+		if (long_fiber_count > 0 and short_fiber_count > 0) sum >>=1;
+
+		output[ibin] += sum;
+            }
+
+            for (const auto& detail: details) {
+               if (idx < int(detail.digi.size()) and detail.validity[idx] and HcalDetId(detail.digi.id()).ietaAbs() >= FIRST_FINEGRAIN_TOWER) {
+		 if(useTDCInMinBiasBits_ && !detail.passTDC[idx]) continue;
+		 finegrain[ibin][1] = finegrain[ibin][1] or detail.fgbits[idx][0];
+		 // what is commonly called the "second" HF min-bias bit is
+		 // actually the 0-th bit, which can also be used instead for the EM bit
+		 // (called finegrain[ibin][0] below) in non-HI running
+		 finegrain[ibin][0] = finegrain[ibin][0] or detail.fgbits[idx][1];
+               }
+            }
+	    // the EM bit is only used if the "second" FG bit is disabled
+            if (embit != nullptr and FG_HF_thresholds_.at(1) != 255) {
+               finegrain[ibin][0] = embit->fineGrainbit(
+                     details[1].digi, details[3].digi,
+                     details[0].digi, details[2].digi,
+                     details[1].validity[idx], details[3].validity[idx],
+                     details[0].validity[idx], details[2].validity[idx],
+                     idx
+               );
+            }
+        }
+    }
+
+    for (int bin = 0; bin < numberOfSamplesHF_; ++bin) {
+       output[bin] = min({(unsigned int) QIE10_MAX_LINEARIZATION_ET, output[bin] >> (hf_lumi_shift-2)});
+    }
+    std::vector<int> finegrain_converted;
+    for (const auto& fg: finegrain)
+       finegrain_converted.push_back(fg.to_ulong());
+    outcoder_->compress(output, finegrain_converted, result);
+}
+
+void HcalTriggerPrimitiveAlgo::analyzeHFQIE10(
+        const IntegerCaloSamples& samples, HcalUpgradeTriggerPrimitiveDigi& result,
         const int hf_lumi_shift, const HcalFeatureBit* embit)
 {
     // Align digis and TP

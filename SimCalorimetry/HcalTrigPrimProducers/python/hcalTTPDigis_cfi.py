@@ -14,5 +14,6 @@ simHcalTTPDigis = cms.EDProducer("HcalTTPDigiProducer",
     defTTLocal       = cms.string("hits>=4"),
     iEtaMin          = cms.int32( 33 ), 
     iEtaMax          = cms.int32( 41 ),
-    threshold        = cms.uint32( 2 )
+    threshold        = cms.uint32( 2 ),
+    upgrade          = cms.bool( True )   
 )

@@ -22,6 +22,7 @@ public:
                         const std::string& decompressionFile="");
   ~CaloTPGTranscoderULUT() override;
   HcalTriggerPrimitiveSample hcalCompress(const HcalTrigTowerDetId& id, unsigned int sample, int fineGrain) const override;
+  HcalUpgradeTriggerPrimitiveSample hcalUpgradeCompress(const HcalTrigTowerDetId& id, unsigned int sample, int fineGrain) const;
   EcalTriggerPrimitiveSample ecalCompress(const EcalTrigTowerDetId& id, unsigned int sample, bool fineGrain) const override;
 
   void rctEGammaUncompress(const HcalTrigTowerDetId& hid, const HcalTriggerPrimitiveSample& hc,
@@ -54,6 +55,8 @@ public:
   static const unsigned int QIE11_OUTPUT_LUT_SIZE = REDUCE11BIT;
   static const unsigned int OUTPUT_LUT_SIZE = std::max({QIE8_OUTPUT_LUT_SIZE, QIE10_OUTPUT_LUT_SIZE, QIE11_OUTPUT_LUT_SIZE});
   static const unsigned int TPGMAX = 256;
+
+  //  bool upgrade_;
 
   // Typedef
   typedef uint8_t LUT;

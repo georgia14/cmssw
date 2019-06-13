@@ -20,6 +20,17 @@
    <class name="HcalTriggerPrimitiveDigi" ClassVersion="10">
     <version ClassVersion="10" checksum="1988665638"/>
    </class>
+   <class name="HcalUpgradeTriggerPrimitiveSample" ClassVersion="10">
+     <version ClassVersion="10" checksum="962586172"/>
+   </class>
+   <class name="HcalUpgradeTriggerPrimitiveDigi" ClassVersion="15">
+      <version ClassVersion="10" checksum="3986635124"/>
+      <version ClassVersion="11" checksum="2056527544"/>
+      <version ClassVersion="12" checksum="1260353952"/>
+      <version ClassVersion="13" checksum="2284698495"/>
+      <version ClassVersion="14" checksum="2056527544"/>
+      <version ClassVersion="15" checksum="2284698495"/>
+   </class>
    <class name="HOTriggerPrimitiveDigi" ClassVersion="10">
     <version ClassVersion="10" checksum="3812852628"/>
    </class>
@@ -50,6 +61,7 @@
    </class>
    <class name="std::vector<HcalQIESample>"/>
    <class name="std::vector<HcalTriggerPrimitiveSample>"/>
+   <class name="std::vector<HcalUpgradeTriggerPrimitiveDigi>"/>
    <class name="std::vector<HBHEDataFrame>"/>
    <class name="std::vector<HODataFrame>"/>
    <class name="std::vector<HFDataFrame>"/>
@@ -67,6 +79,7 @@
    <class name="edm::SortedCollection<HFDataFrame,edm::StrictWeakOrdering<HFDataFrame> >"/>
    <class name="edm::SortedCollection<HcalCalibDataFrame,edm::StrictWeakOrdering<HcalCalibDataFrame> >"/>
    <class name="edm::SortedCollection<HcalTriggerPrimitiveDigi,edm::StrictWeakOrdering<HcalTriggerPrimitiveDigi> >"/>
+   <class name="edm::SortedCollection<HcalUpgradeTriggerPrimitiveDigi,edm::StrictWeakOrdering<HcalUpgradeTriggerPrimitiveDigi> >"/>
    <class name="edm::SortedCollection<HOTriggerPrimitiveDigi,edm::StrictWeakOrdering<HOTriggerPrimitiveDigi> >"/>
    <class name="edm::SortedCollection<HcalHistogramDigi,edm::StrictWeakOrdering<HcalHistogramDigi> >"/>
    <class name="edm::SortedCollection<ZDCDataFrame,edm::StrictWeakOrdering<ZDCDataFrame> >"/>
@@ -95,6 +108,7 @@
    <class name="edm::Wrapper<edm::SortedCollection<HFDataFrame,edm::StrictWeakOrdering<HFDataFrame> > >" splitLevel="0" />
    <class name="edm::Wrapper<edm::SortedCollection<HcalCalibDataFrame,edm::StrictWeakOrdering<HcalCalibDataFrame> > >"/>
    <class name="edm::Wrapper<edm::SortedCollection<HcalTriggerPrimitiveDigi,edm::StrictWeakOrdering<HcalTriggerPrimitiveDigi> > >" splitLevel="0"/>
+   <class name="edm::Wrapper<edm::SortedCollection<HcalUpgradeTriggerPrimitiveDigi,edm::StrictWeakOrdering<HcalUpgradeTriggerPrimitiveDigi> > >" splitLevel="0"/>
    <class name="edm::Wrapper<edm::SortedCollection<HOTriggerPrimitiveDigi,edm::StrictWeakOrdering<HOTriggerPrimitiveDigi> > >" splitLevel="0"/>
    <class name="edm::Wrapper<edm::SortedCollection<HcalHistogramDigi,edm::StrictWeakOrdering<HcalHistogramDigi> > >" splitLevel="0"/>
    <class name="edm::Wrapper<edm::SortedCollection<ZDCDataFrame,edm::StrictWeakOrdering<ZDCDataFrame> > >" splitLevel="0" />

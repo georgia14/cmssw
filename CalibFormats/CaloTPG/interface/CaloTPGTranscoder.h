@@ -5,6 +5,7 @@
 #include "DataFormats/HcalDetId/interface/HcalTrigTowerDetId.h"
 #include "DataFormats/EcalDetId/interface/EcalTrigTowerDetId.h"
 #include "DataFormats/HcalDigi/interface/HcalTriggerPrimitiveSample.h"
+#include "DataFormats/HcalDigi/interface/HcalUpgradeTriggerPrimitiveSample.h"
 #include "DataFormats/EcalDigi/interface/EcalTriggerPrimitiveSample.h"
 
 class HcalTPGCompressor;
@@ -29,6 +30,7 @@ public:
   enum Mode { All=0, RCT=1, HcalTPG=2, EcalTPG=3 };
   /** \brief Compression from linear samples+fine grain in the HTR */
   virtual HcalTriggerPrimitiveSample hcalCompress(const HcalTrigTowerDetId& id, unsigned int sample, int fineGrain) const = 0;
+  virtual HcalUpgradeTriggerPrimitiveSample hcalUpgradeCompress(const HcalTrigTowerDetId& id, unsigned int sample, int fineGrain) const = 0;
   /** \brief Compression from linear samples+fine grain in the ECAL */
   virtual EcalTriggerPrimitiveSample ecalCompress(const EcalTrigTowerDetId& id, unsigned int sample, bool fineGrain) const = 0;
   /** \brief Uncompression for the Electron/Photon path in the RCT */

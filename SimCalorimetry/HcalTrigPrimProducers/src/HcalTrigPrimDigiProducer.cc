@@ -39,13 +39,15 @@ HcalTrigPrimDigiProducer::HcalTrigPrimDigiProducer(const edm::ParameterSet& ps)
         ps.getParameter<int>("numberOfPresamplesHF"),
         ps.getParameter<bool>("useTDCInMinBiasBits"),
         ps.getParameter<uint32_t>("MinSignalThreshold"),
-        ps.getParameter<uint32_t>("PMTNoiseThreshold")
+	   ps.getParameter<uint32_t>("PMTNoiseThreshold"),
+	   ps.getParameter<bool>("upgrade")
   ),
   inputLabel_(ps.getParameter<std::vector<edm::InputTag> >("inputLabel")),
   inputUpgradeLabel_(ps.getParameter<std::vector<edm::InputTag> >("inputUpgradeLabel")),
   inputTagFEDRaw_(ps.getParameter<edm::InputTag> ("InputTagFEDRaw")),
   runZS_(ps.getParameter<bool>("RunZS")),
-  runFrontEndFormatError_(ps.getParameter<bool>("FrontEndFormatError"))
+  runFrontEndFormatError_(ps.getParameter<bool>("FrontEndFormatError")),
+  upgrade2_(ps.getParameter<bool>("upgrade"))
 {
    std::vector<bool> upgrades = {ps.getParameter<bool>("upgradeHB"), ps.getParameter<bool>("upgradeHE"), ps.getParameter<bool>("upgradeHF")};
    upgrade_ = std::any_of(std::begin(upgrades), std::end(upgrades), [](bool a) { return a; });
@@ -83,6 +85,7 @@ HcalTrigPrimDigiProducer::HcalTrigPrimDigiProducer(const edm::ParameterSet& ps)
   }
 
    produces<HcalTrigPrimDigiCollection>();
+   produces<HcalUpgradeTrigPrimDigiCollection>();
    theAlgo_.setPeakFinderAlgorithm(ps.getParameter<int>("PeakFinderAlgorithm"));
 
    edm::ParameterSet hfSS=ps.getParameter<edm::ParameterSet>("tpScales").getParameter<edm::ParameterSet>("HF");
@@ -110,6 +113,7 @@ void HcalTrigPrimDigiProducer::produce(edm::Event& iEvent, const edm::EventSetup
   
   // Step B: Create empty output
   std::unique_ptr<HcalTrigPrimDigiCollection> result(new HcalTrigPrimDigiCollection());
+  std::unique_ptr<HcalUpgradeTrigPrimDigiCollection> up_result(new HcalUpgradeTrigPrimDigiCollection());
 
   edm::Handle<HBHEDigiCollection> hbheDigis;
   edm::Handle<HFDigiCollection>   hfDigis;
@@ -199,10 +203,12 @@ void HcalTrigPrimDigiProducer::produce(edm::Event& iEvent, const edm::EventSetup
            *result, &(*pG), rctlsb, hfembit, *hbheDigis, *hfDigis);
   } else if (legacy_ and upgrade_) {
      theAlgo_.run(inputCoder.product(), outTranscoder->getHcalCompressor().get(), pSetup.product(),
-           *result, &(*pG), rctlsb, hfembit, *hbheDigis, *hfDigis, *hbheUpDigis, *hfUpDigis);
+		  *up_result, &(*pG), rctlsb, hfembit, *hbheUpDigis, *hfUpDigis);
+		  //           *result, &(*pG), rctlsb, hfembit, *hbheDigis, *hfDigis, *hbheUpDigis, *hfUpDigis);
   } else {
      theAlgo_.run(inputCoder.product(), outTranscoder->getHcalCompressor().get(), pSetup.product(),
-           *result, &(*pG), rctlsb, hfembit, *hbheUpDigis, *hfUpDigis);
+		  *up_result, &(*pG), rctlsb, hfembit, *hbheUpDigis, *hfUpDigis);
+		  //           *result, &(*pG), rctlsb, hfembit, *hbheUpDigis, *hfUpDigis);
   }
 
 
@@ -241,6 +247,7 @@ void HcalTrigPrimDigiProducer::produce(edm::Event& iEvent, const edm::EventSetup
 
   // Step D: Put outputs into event
   iEvent.put(std::move(result));
+  iEvent.put(std::move(up_result));
 }
 
 
