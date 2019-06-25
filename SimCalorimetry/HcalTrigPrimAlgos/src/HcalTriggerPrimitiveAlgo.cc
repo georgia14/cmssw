@@ -33,7 +33,7 @@ timing(const QIE11DataFrame& frame) {
   int dir = -1; int step = 1;  
   int i = sig_bx;
 
-  int nbins = 50;
+  int nbins = 500;
 
   while ((i > 2) && (i < (int)frame.size() - 2) && (i < n) && ((rt < -998.) || (ft < 998.))) {
 
@@ -659,7 +659,8 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
    std::vector<HcalTrigTowerDetId> ids = theTrigTowerGeometry->towerIds(detId);
 
    // store individual sample data
-   std::map<int, std::vector<int>> thesampledata; //first=ibin, second=sample
+   // std::map<int, std::vector<int>> thesampledata; //first=ibin, second=sample
+   std::vector<int> thesampledata(8, 0);
 
    //slide algo window
    for(int ibin = 0; ibin < int(samples.size())- shrink; ++ibin) {
@@ -673,11 +674,11 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
 
 	if(sample>QIE11_MAX_LINEARIZATION_ET) sample = QIE11_MAX_LINEARIZATION_ET;
 	if(ids.size()==2) {
-	  thesampledata[ibin].push_back(int(sample * 0.5 * weights_[i]));
+	  thesampledata.push_back(int(sample * 0.5 * weights_[i]));
 	  algosumvalue += int(sample * 0.5 * weights_[i]);
 	}
 	else {
-	  thesampledata[ibin].push_back(int(sample * weights_[i]));
+	  thesampledata.push_back(int(sample * weights_[i]));
 	  algosumvalue += int(sample * weights_[i]);
 	}
       }
@@ -701,14 +702,15 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
    int dgPresamples=samples.presamples(); //3
    int tpPresamples=numberOfPresamples_;//2
    int shift = dgPresamples - tpPresamples; // shift=1 and shrink=4weights-1 = 3
-   int dgSamples=samples.size(); //8
+   //   int dgSamples=samples.size(); //8
    int tpSamples=numberOfSamples_; //4
 
    // vector data to store per sample info for reconstructing pulse shape
-   std::vector<int> sampledata = {0,0,0,0};
+   //   std::vector<int> sampledata = {0,0,0,0};
    // vector data to store the depth info for the SOI sample only
    std::vector<int> depth_sums(8, 0);
    
+   /*
    if((shift<shrink) || (shift + tpSamples + shrink > dgSamples - (peak_finder_algorithm_ - 1) )   ){
      edm::LogInfo("HcalTriggerPrimitiveAlgo::analyze") << 
        "TP presample or size from the configuration file is out of the accessible range. Using digi values from data instead...";
@@ -716,7 +718,7 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
      tpPresamples=dgPresamples-shrink;// =0
      tpSamples=dgSamples-(peak_finder_algorithm_-1)-shrink-shift; //8-2-3-1=2
    }
-   
+   */
    std::vector<int> finegrain(tpSamples,false);
 
    IntegerCaloSamples output(samples.id(), tpSamples);
@@ -732,14 +734,14 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
      if (isPeak){
        output[ibin] = std::min<unsigned int>(sum[idx],QIE11_MAX_LINEARIZATION_ET);
        //       printf("++++++++InPeak, sum is=%u\n",sum[idx]);
-
+       /*
        std::map<int, std::vector<int>>::iterator it;
        for ( it = thesampledata.begin(); it != thesampledata.end(); it++ ){
 	 if((it->first)==idx) {
 	   sampledata=it->second;
 	 }
        }
-
+       */
        // Only provide depth information for the SOI.  This is the
        // energy value used downstream, even if the peak is found for
        // another sample.
@@ -770,7 +772,7 @@ HcalTriggerPrimitiveAlgo::analyzeQIE11(IntegerCaloSamples& samples, HcalUpgradeT
    }
    outcoder_->compress(output, finegrain, result);
    
-   update(result, theDepthMap[samples.id()], numberOfPresamples_,depth_sums, sampledata); 
+   update(result, theDepthMap[samples.id()], numberOfPresamples_,depth_sums, thesampledata); 
 }
 
 void HcalTriggerPrimitiveAlgo::analyzeHF(IntegerCaloSamples & samples, HcalTriggerPrimitiveDigi & result, const int hf_lumi_shift) {
